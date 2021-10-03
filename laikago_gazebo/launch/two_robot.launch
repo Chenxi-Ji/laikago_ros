@@ -1,0 +1,69 @@
+<launch>
+    <arg name="paused" default="true"/>
+    <arg name="use_sim_time" default="true"/>
+    <arg name="gui" default="true"/>
+    <arg name="headless" default="false"/>
+    <arg name="debug" default="false"/>
+    <!-- Debug mode will hung up the robot, use "true" or "false" to switch it. -->
+    <arg name="user_debug" default="false"/>
+    
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <arg name="world_name" value="$(find laikago_gazebo)/launch/world/normal.world"/>
+        <arg name="debug" value="$(arg debug)"/>
+        <arg name="gui" value="$(arg gui)"/>
+        <arg name="paused" value="$(arg paused)"/>
+        <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+        <arg name="headless" value="$(arg headless)"/>
+    </include> 
+    
+    <!-- Load the URDF into the ROS Parameter Server -->
+    <param name="robot_description"
+           command="$(find xacro)/xacro --inorder '$(find aliengo_description)/xacro/robot.xacro'
+            DEBUG:=$(arg user_debug)"/>
+    
+
+    <!-- Run a python script to the send a service call to gazebo_ros to spawn a URDF robot -->
+    <!-- Set trunk and joint positions at startup -->
+      <node pkg="gazebo_ros" type="spawn_model" name="robot1" respawn="false" output="screen" 
+          args="-urdf -z 0.0 -model aliengo -param robot_description -unpause"/>
+
+
+    <param name="robot"
+           command="$(find xacro)/xacro --inorder '$(find aliengo_description)/xacro/robot1.xacro'
+            DEBUG:=$(arg user_debug)"/>
+      <node pkg="gazebo_ros" type="spawn_model" name="robot2" respawn="false" output="screen"
+          args="-urdf -x 0.0 -y 0.8 -z 0.0 -model aliengo_gazebo -param robot -unpause"/>
+    <!-- Load joint controller configurations from YAML file to parameter server -->
+      <rosparam file="$(find laikago_gazebo)/config/robot_control_aliengo.yaml" command="load"/>
+     
+    <!-- load the controllers -->
+      <node pkg="controller_manager" type="spawner" name="controller_spawner" respawn="false"
+          output="screen" ns="/laikago_gazebo" args="joint_state_controller
+          FL_hip_controller FL_thigh_controller FL_calf_controller
+          FR_hip_controller FR_thigh_controller FR_calf_controller
+          RL_hip_controller RL_thigh_controller RL_calf_controller
+          RR_hip_controller RR_thigh_controller RR_calf_controller"/>
+
+      <node pkg="controller_manager" type="spawner" name="controller_spawner" respawn="false"
+          output="screen" ns="/aliengo_gazebo" args="joint_state_controller
+          FL_hip_controller FL_thigh_controller FL_calf_controller
+          FR_hip_controller FR_thigh_controller FR_calf_controller
+          RL_hip_controller RL_thigh_controller RL_calf_controller
+          RR_hip_controller RR_thigh_controller RR_calf_controller"/>
+    
+    <!-- convert joint states to TF transforms for rviz, etc -->
+      <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher1"
+          respawn="false" output="screen">
+          <remap from="/joint_states" to="/laikago_gazebo/joint_states"/>
+      </node>
+
+      <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher2"
+          respawn="false" output="screen">
+          <remap from="/joint_states" to="/aliengo_gazebo/joint_states"/>
+      </node>
+
+
+
+    <!-- <node pkg="laikago_gazebo" type="servo" name="servo" required="true" output="screen"/> -->
+    
+</launch>
